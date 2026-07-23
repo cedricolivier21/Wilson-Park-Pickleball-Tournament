@@ -4,7 +4,7 @@ import time
 import pandas as pd
 
 # --- MOBILE-FIRST PAGE SETUP ---
-st.set_page_config(page_title="Pickleball Hub", page_icon="🏓", layout="centered")
+st.set_page_config(page_title="Pickleball Hub", page_icon="", layout="centered")
 
 # --- IMMUTABLE SYSTEM OWNER CREDENTIAL ---
 OWNER_PASSKEY = "admin123" 
@@ -214,3 +214,4 @@ if page == "Active Tournament Ground":
                             curr["matches"][idx]["s1"] = s1
                             curr["matches"][idx]["s2"] = s2
                         else:
+                            st.markdown(f"<h3 style='text-align: center; margin:0;'>{m['s1']} - {m['s2']}</h3>", unsafe_allow_html=True)
