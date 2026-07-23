@@ -11,11 +11,11 @@ OWNER_PASSKEY = "admin123"
 
 # --- INITIALIZE GLOBAL DATABASE STATES ---
 if "tournament_history" not in pd_streamlit_wrapper.session_state:
-pd_streamlit_wrapper.session_state.tournament_history = []
+    pd_streamlit_wrapper.session_state.tournament_history = []
 if "current_tournament" not in pd_streamlit_wrapper.session_state:
-pd_streamlit_wrapper.session_state.current_tournament = None
+    pd_streamlit_wrapper.session_state.current_tournament = None
 if "authorized_directors" not in pd_streamlit_wrapper.session_state:
-pd_streamlit_wrapper.session_state.authorized_directors = set()
+    pd_streamlit_wrapper.session_state.authorized_directors = set()
 
 pd_streamlit_wrapper.title("🏓 Pro Pickleball Tournament Engine")
 pd_streamlit_wrapper.write("---")
