@@ -4,7 +4,7 @@ import time
 import pandas as pd
 
 # --- MOBILE-FIRST PAGE SETUP ---
-st.set_page_config(page_title="Pickleball Hub", page_icon="", layout="centered")
+st.set_page_config(page_title="Pickleball Hub", page_icon="🏓", layout="centered")
 
 # --- IMMUTABLE SYSTEM OWNER CREDENTIAL ---
 OWNER_PASSKEY = "admin123" 
@@ -17,7 +17,7 @@ if "current_tournament" not in st.session_state:
 if "authorized_directors" not in st.session_state:
     st.session_state.authorized_directors = set()
 
-st.title("🏓 Pro Pickleball Tournament Engine")
+st.title("🏓 Wilson Park Pickleball Tournament")
 st.write("---")
 
 # ==========================================
@@ -204,7 +204,7 @@ if page == "Active Tournament Ground":
                 group_tag = f"({m['group']}) " if "group" in m else ""
                 
                 with st.container(border=True):
-                    col1, col2, col3 = st.columns()
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         st.write(f"**{m['t1']}**")
                     with col2:
