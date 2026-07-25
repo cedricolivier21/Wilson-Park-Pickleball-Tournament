@@ -17,7 +17,7 @@ if "current_tournament" not in st.session_state:
 if "authorized_directors" not in st.session_state:
     st.session_state.authorized_directors = set()
 
-st.title("🏓 Wilson Park Pickleball Tournament")
+st.title("🏓 Pro Pickleball Tournament Engine")
 st.write("---")
 
 # ==========================================
