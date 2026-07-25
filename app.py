@@ -204,8 +204,7 @@ if page == "Active Tournament Ground":
                 group_tag = f"({m['group']}) " if "group" in m else ""
                 
                 with st.container(border=True):
-                    # Fixed proportional responsive 5-column horizontal display matrix
-                    c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 2, 3])
+                    c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 2])
                     
                     with c1:
                         st.markdown(f"<div style='padding-top:10px;'><b>{m['t1']}</b></div>", unsafe_allow_html=True)
@@ -215,3 +214,6 @@ if page == "Active Tournament Ground":
                             s1 = st.number_input("S1", min_value=0, value=int(m["s1"]), key=f"s1_{idx}", label_visibility="collapsed")
                             curr["matches"][idx]["s1"] = s1
                         else:
+                            st.markdown(f"<h4 style='text-align: center; margin-top:5px;'>{m['s1']}</h4>", unsafe_allow_html=True)
+                    
+                    with c3:
