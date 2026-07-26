@@ -34,31 +34,36 @@ def save_tournament_data(data):
 
 db = load_tournament_data()
 
+# INITIALIZE SESSION STATE
 if "role" not in st.session_state:
     st.session_state.role = "Viewer"
+
+if "setup_complete" not in st.session_state:
+    st.session_state.setup_complete = db.get("setup_complete", False) if db else False
 
 if "teams_generated" not in st.session_state:
     st.session_state.teams_generated = False
 
-if db is not None:
-    st.session_state.setup_complete = db.get("setup_complete", False)
-    st.session_state.teams = db.get("teams", [])
-    st.session_state.fixtures_a = db.get("fixtures_a", [])
-    st.session_state.fixtures_b = db.get("fixtures_b", [])
-    st.session_state.scores_a = {int(k): v for k, v in db.get("scores_a", {}).items()}
-    st.session_state.scores_b = {int(k): v for k, v in db.get("scores_b", {}).items()}
+if "teams" not in st.session_state:
+    st.session_state.teams = db.get("teams", []) if db else []
+
+if "fixtures_a" not in st.session_state:
+    st.session_state.fixtures_a = db.get("fixtures_a", []) if db else []
+
+if "fixtures_b" not in st.session_state:
+    st.session_state.fixtures_b = db.get("fixtures_b", []) if db else []
+
+if "scores_a" not in st.session_state:
+    st.session_state.scores_a = {int(k): v for k, v in db.get("scores_a", {}).items()} if db else {}
+
+if "scores_b" not in st.session_state:
+    st.session_state.scores_b = {int(k): v for k, v in db.get("scores_b", {}).items()} if db else {}
+
+if "ko_scores" not in st.session_state:
     st.session_state.ko_scores = db.get("ko_scores", {
         "playin": [None, None], "semi1": [None, None],
         "semi2": [None, None], "final": [None, None]
-    })
-else:
-    st.session_state.setup_complete = False
-    st.session_state.teams = []
-    st.session_state.fixtures_a = []
-    st.session_state.fixtures_b = []
-    st.session_state.scores_a = {}
-    st.session_state.scores_b = {}
-    st.session_state.ko_scores = {
+    }) if db else {
         "playin": [None, None], "semi1": [None, None],
         "semi2": [None, None], "final": [None, None]
     }
@@ -166,42 +171,42 @@ def calculate_standings(teams, matches, scores_dict):
     return df.reset_index(drop=True)
 
 # ---------------------------------------------------------
-# STEP 1: INITIAL SETUP
+# SETUP PHASES: STEP 1 & STEP 2
 # ---------------------------------------------------------
 if not st.session_state.setup_complete:
     if st.session_state.role != "Director":
         st.info("⏳ Tournament is being initialized by the Director. Check back shortly!")
     else:
-        st.subheader("🛠️ Step 1: Generate & Customize Teams")
-        
-        default_players = "\n".join([f"Player {i+1}" for i in range(22)])
-        players_text = st.text_area("Enter 22 Player Names (one per line):", value=default_players, height=180)
+        # STEP 1: PLAYER NAMES INPUT
+        if not st.session_state.teams_generated:
+            st.subheader("🛠️ Step 1: Input Player Names")
+            
+            default_players = "\n".join([f"Player {i+1}" for i in range(22)])
+            players_text = st.text_area("Enter 22 Player Names (one per line):", value=default_players, height=180)
 
-        # BUTTON TRIGGER
-        if st.button("🔀 Step A: Auto-Generate Random Pairs"):
-            player_list = [p.strip() for p in players_text.split("\n") if p.strip()]
+            if st.button("🔀 Generate Random Pairs"):
+                player_list = [p.strip() for p in players_text.split("\n") if p.strip()]
 
-            if len(player_list) != 22:
-                st.error(f"Please enter exactly 22 player names. Current count: {len(player_list)}")
-            else:
-                random.shuffle(player_list)
-                teams = []
-                for i in range(11):
-                    teams.append({
-                        "id": i + 1,
-                        "name": f"Team {i+1}",
-                        "members": [player_list[i * 2], player_list[i * 2 + 1]],
-                        "group": "A" if i < 6 else "B"
-                    })
-                st.session_state.teams = teams
-                st.session_state.teams_generated = True # PERSIST STATE
-                st.rerun()
+                if len(player_list) != 22:
+                    st.error(f"Please enter exactly 22 player names. Current count: {len(player_list)}")
+                else:
+                    random.shuffle(player_list)
+                    teams = []
+                    for i in range(11):
+                        teams.append({
+                            "id": i + 1,
+                            "name": f"Team {i+1}",
+                            "members": [player_list[i * 2], player_list[i * 2 + 1]],
+                            "group": "A" if i < 6 else "B"
+                        })
+                    st.session_state.teams = teams
+                    st.session_state.teams_generated = True
+                    st.rerun()
 
-        # STEP B: WILL STAY VISIBLE ONCE TEAMS ARE GENERATED
-        if st.session_state.teams_generated and len(st.session_state.teams) == 11:
-            st.divider()
-            st.subheader("✏️ Step B: Edit Teams & Lock Schedule")
-            st.caption("Review or edit the teams below before launching the tournament:")
+        # STEP 2: MANUAL TEAM EDIT & LAUNCH
+        else:
+            st.subheader("✏️ Step 2: Customize Teams & Manual Edit")
+            st.caption("You can edit team names or manually swap player pairs directly in the table below before launching:")
 
             teams_df = pd.DataFrame([
                 {
@@ -212,41 +217,50 @@ if not st.session_state.setup_complete:
                 } for t in st.session_state.teams
             ])
 
-            edited_df = st.data_editor(teams_df, num_rows="fixed", use_container_width=True, key="team_editor")
+            edited_df = st.data_editor(teams_df, num_rows="fixed", use_container_width=True, key="manual_team_editor")
 
-            if st.button("🚀 Lock Teams & Launch Tournament", type="primary"):
-                updated_teams = []
-                for idx, row in edited_df.iterrows():
-                    updated_teams.append({
-                        "id": idx + 1,
-                        "name": str(row["Team Name"]),
-                        "members": [str(row["Player 1"]), str(row["Player 2"])],
-                        "group": str(row["Group"])
-                    })
-                
-                st.session_state.teams = updated_teams
+            col_btn1, col_btn2 = st.columns([2, 8])
+            with col_btn1:
+                if st.button("🚀 Launch Tournament", type="primary"):
+                    updated_teams = []
+                    for idx, row in edited_df.iterrows():
+                        updated_teams.append({
+                            "id": idx + 1,
+                            "name": str(row["Team Name"]),
+                            "members": [str(row["Player 1"]), str(row["Player 2"])],
+                            "group": str(row["Group"])
+                        })
+                    
+                    st.session_state.teams = updated_teams
 
-                teams_a = [t for t in updated_teams if t["group"] == "A"]
-                teams_b = [t for t in updated_teams if t["group"] == "B"]
+                    teams_a = [t for t in updated_teams if t["group"] == "A"]
+                    teams_b = [t for t in updated_teams if t["group"] == "B"]
 
-                matches_a = generate_round_robin(teams_a)
-                matches_b = generate_round_robin(teams_b)
+                    matches_a = generate_round_robin(teams_a)
+                    matches_b = generate_round_robin(teams_b)
 
-                all_fixtures = matches_a + matches_b
-                for idx, match in enumerate(all_fixtures):
-                    match["court"] = f"Court {(idx % 4) + 1}"
+                    all_fixtures = matches_a + matches_b
+                    for idx, match in enumerate(all_fixtures):
+                        match["court"] = f"Court {(idx % 4) + 1}"
 
-                st.session_state.fixtures_a = matches_a
-                st.session_state.fixtures_b = matches_b
-                st.session_state.scores_a = {}
-                st.session_state.scores_b = {}
-                st.session_state.setup_complete = True
+                    st.session_state.fixtures_a = matches_a
+                    st.session_state.fixtures_b = matches_b
+                    st.session_state.scores_a = {}
+                    st.session_state.scores_b = {}
+                    
+                    # Mark setup complete so Steps 1 & 2 never render again
+                    st.session_state.setup_complete = True
 
-                sync_to_file()
-                st.rerun()
+                    sync_to_file()
+                    st.rerun()
+
+            with col_btn2:
+                if st.button("↩️ Re-shuffle Random Pairs"):
+                    st.session_state.teams_generated = False
+                    st.rerun()
 
 # ---------------------------------------------------------
-# STEP 2: LIVE DASHBOARD
+# STEP 3: LIVE DASHBOARD (Persists until Reset)
 # ---------------------------------------------------------
 else:
     is_director = (st.session_state.role == "Director")
