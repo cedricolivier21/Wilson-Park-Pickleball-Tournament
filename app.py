@@ -2,13 +2,14 @@ import random
 import pandas as pd
 import streamlit as st
 
-# Page setup
+# Page configuration
 st.set_page_config(
     page_title="Wilson Park Pickleball Tournament",
     page_icon="🏓",
     layout="wide",
 )
 
+# Header
 st.title("🏓 Wilson Park Pickleball Tournament")
 st.caption("July 26 • 22 Players • 11 Teams • 4 Courts")
 
@@ -46,23 +47,24 @@ if "ko_scores" not in st.session_state:
         "final": [None, None],
     }
 
-# --- SIDEBAR AUTHENTICATION ---
-st.sidebar.title("🔐 Access Control")
+# --- SIDEBAR CONTROL FOR DIRECTORS ---
+st.sidebar.title("📲 Tournament Portal")
+
 if st.session_state.role == "Viewer":
-    st.sidebar.info("👤 Currently viewing as **Player / Spectator**")
+    st.sidebar.info("👀 **Spectator Mode** (Read-Only)")
     pin_input = st.sidebar.text_input(
-        "Enter Director PIN to edit scores:", type="password"
+        "Director PIN (To enter scores):", type="password"
     )
-    if st.sidebar.button("Login as Director"):
+    if st.sidebar.button("Director Login"):
         if pin_input in DIRECTOR_PINS:
             st.session_state.role = "Director"
-            st.sidebar.success("Logged in as Tournament Director!")
+            st.sidebar.success("Logged in as Director!")
             st.rerun()
         else:
-            st.sidebar.error("Invalid Director PIN.")
+            st.sidebar.error("Incorrect PIN")
 else:
-    st.sidebar.success("🔑 Logged in as **Tournament Director**")
-    if st.sidebar.button("Logout to Viewer Mode"):
+    st.sidebar.success("🔑 **Director Mode Active**")
+    if st.sidebar.button("Log Out"):
         st.session_state.role = "Viewer"
         st.rerun()
 
@@ -98,7 +100,7 @@ def calculate_standings(teams, matches, scores_dict):
     for idx, match in enumerate(matches):
         s1, s2 = scores_dict.get(idx, (None, None))
 
-        # Ignore match if scores are unentered or left at 0-0
+        # Ignore match if scores are unentered or 0-0
         if s1 is None or s2 is None or (s1 == 0 and s2 == 0):
             continue
 
@@ -108,7 +110,6 @@ def calculate_standings(teams, matches, scores_dict):
         stats[t1_name]["Played"] += 1
         stats[t2_name]["Played"] += 1
 
-        # Track Gained, Conceded, Diff
         stats[t1_name]["Gained"] += s1
         stats[t1_name]["Conceded"] += s2
         stats[t1_name]["Diff"] += s1 - s2
@@ -117,7 +118,6 @@ def calculate_standings(teams, matches, scores_dict):
         stats[t2_name]["Conceded"] += s1
         stats[t2_name]["Diff"] += s2 - s1
 
-        # Match Points: Win=2, Draw=1, Loss=0
         if s1 > s2:
             stats[t1_name]["Won"] += 1
             stats[t1_name]["Points"] += 2
@@ -133,7 +133,6 @@ def calculate_standings(teams, matches, scores_dict):
             stats[t2_name]["Points"] += 1
 
     df = pd.DataFrame(list(stats.values()))
-    # Primary sort: Points -> Secondary sort: Diff -> Tertiary sort: Points Gained
     df = df.sort_values(
         by=["Points", "Diff", "Gained"], ascending=[False, False, False]
     )
@@ -141,15 +140,15 @@ def calculate_standings(teams, matches, scores_dict):
 
 
 # ---------------------------------------------------------
-# STEP 1: INITIAL SETUP (DIRECTOR ONLY)
+# STEP 1: INITIAL SETUP (DIRECTORS ONLY)
 # ---------------------------------------------------------
 if not st.session_state.setup_complete:
     if st.session_state.role != "Director":
-        st.warning(
-            "⏳ Tournament is currently being configured by Directors. Please check back shortly!"
+        st.info(
+            "⏳ The tournament schedule is being set up by the Directors. Please refresh in a few minutes!"
         )
     else:
-        st.subheader("🛠️ Tournament Setup (Director Access)")
+        st.subheader("🛠️ Tournament Setup")
         default_players = "\n".join([f"Player {i+1}" for i in range(22)])
         players_text = st.text_area(
             "Enter 22 Player Names (one per line):",
@@ -157,7 +156,7 @@ if not st.session_state.setup_complete:
             height=200,
         )
 
-        if st.button("🔀 Generate Random Teams & Courts Schedule", type="primary"):
+        if st.button("🔀 Generate Teams, Schedule & Court Assignments", type="primary"):
             player_list = [
                 p.strip() for p in players_text.split("\n") if p.strip()
             ]
@@ -169,7 +168,7 @@ if not st.session_state.setup_complete:
             else:
                 random.shuffle(player_list)
 
-                # Assign 11 teams
+                # Generate 11 teams
                 teams = []
                 for i in range(11):
                     teams.append(
@@ -186,14 +185,14 @@ if not st.session_state.setup_complete:
 
                 st.session_state.teams = teams
 
-                # Generate round robin fixtures
+                # Generate fixtures
                 teams_a = [t for t in teams if t["group"] == "A"]
                 teams_b = [t for t in teams if t["group"] == "B"]
 
                 matches_a = generate_round_robin(teams_a)
                 matches_b = generate_round_robin(teams_b)
 
-                # Assign court numbers (1 to 4) dynamically across all fixtures
+                # Distribute court numbers (Courts 1 through 4)
                 all_fixtures = matches_a + matches_b
                 for idx, match in enumerate(all_fixtures):
                     match["court"] = f"Court {(idx % 4) + 1}"
@@ -206,11 +205,13 @@ if not st.session_state.setup_complete:
                 st.rerun()
 
 # ---------------------------------------------------------
-# STEP 2: LIVE TOURNAMENT DASHBOARD
+# STEP 2: PUBLIC DASHBOARD (PLAYERS & DIRECTORS)
 # ---------------------------------------------------------
 else:
-    # TEAM OVERVIEW
-    with st.expander("👥 View Roster & Assigned Teams", expanded=False):
+    is_director = st.session_state.role == "Director"
+
+    # 1. TEAM ROSTER
+    with st.expander("👥 Team Roster & Group Assignments", expanded=True):
         col_t1, col_t2 = st.columns(2)
         teams_a = [t for t in st.session_state.teams if t["group"] == "A"]
         teams_b = [t for t in st.session_state.teams if t["group"] == "B"]
@@ -225,7 +226,7 @@ else:
             for t in teams_b:
                 st.write(f"**{t['name']}**: { ' & '.join(t['members']) }")
 
-    # STANDINGS TABLES
+    # 2. STANDINGS
     teams_a = [t for t in st.session_state.teams if t["group"] == "A"]
     teams_b = [t for t in st.session_state.teams if t["group"] == "B"]
 
@@ -249,16 +250,11 @@ else:
 
     st.divider()
 
-    # FIXTURES & SCORES BY COURT
-    st.subheader("⚔️ Fixtures & Court Allocation")
-    is_director = st.session_state.role == "Director"
-
-    if not is_director:
-        st.info("💡 Log in via the sidebar if you are a Tournament Director to edit scores.")
+    # 3. FIXTURES & SCORES BY COURT
+    st.subheader("⚔️ Matches & Court Allocation")
 
     col_f1, col_f2 = st.columns(2)
 
-    # Function to render match score input or static display
     def render_fixture(idx, match, score_dict, key_prefix):
         curr_s1, curr_s2 = score_dict.get(idx, (0, 0))
         c1, c2, c3, c4, c5 = st.columns([1.5, 3, 1.5, 1.5, 3])
@@ -284,11 +280,11 @@ else:
             score_dict[idx] = (s1, s2)
         else:
             score_str = (
-                f"{curr_s1} - {curr_s2}"
+                f"**{curr_s1} - {curr_s2}**"
                 if (curr_s1 > 0 or curr_s2 > 0)
                 else "VS"
             )
-            c3.write(f"**{score_str}**")
+            c3.write(score_str)
 
         c5.write(f"**{match['t2']['name']}**")
 
@@ -304,9 +300,7 @@ else:
 
     st.divider()
 
-    # ---------------------------------------------------------
-    # STEP 3: DYNAMIC KNOCKOUT BRACKET
-    # ---------------------------------------------------------
+    # 4. KNOCKOUT BRACKET
     st.subheader("🏆 Knockout Stage")
 
     team_3rd_a = standings_a.iloc[2]["Team"]
